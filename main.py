@@ -2,6 +2,21 @@ import os
 import math
 import statistics
 
+# Keep-alive server for Render
+app = Flask('')
+@app.route('/')
+def home():
+    return "I'm alive!"
+def run():
+    app.run(host='0.0.0.0', port=8080)
+Thread(target=run).start()
+
+# Bot setup
+intents = discord.Intents.default()
+intents.message_content = True
+bot = commands.Bot(command_prefix=["!", "！"], intents=intents)
+
+
 # 加權參數
 weights = {
     "level": 100,
@@ -266,6 +281,7 @@ def get_help_embed():
     embed.set_footer(text="由原初之星計算器提供 ✨")
     return embed
     
-if __name__ == "__main__":
-    bot.run(os.getenv("DISCORD_TOKEN"))
+
+# 啟動 Bot
+bot.run(os.getenv("DISCORD_TOKEN"))
     
