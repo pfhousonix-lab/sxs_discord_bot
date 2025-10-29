@@ -1,6 +1,9 @@
-import os
+import discord
+from discord.ext import commands
+from flask import Flask
+from threading import Thread
 import math
-import statistics
+import os
 
 # Keep-alive server for Render
 app = Flask('')
@@ -168,8 +171,6 @@ def recommend_upgrades(current_final_score, raw):
 
     return "\n".join(lines)
 
-import discord
-from discord.ext import commands
 
 bot = commands.Bot(intents=discord.Intents.default())
 
