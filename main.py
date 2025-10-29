@@ -3,6 +3,12 @@ from threading import Thread
 import discord
 from discord.ext import commands
 import math
+import os
+from dotenv import load_dotenv
+
+# 載入環境變數
+load_dotenv()
+TOKEN = os.getenv("DISCORD_TOKEN")
 
 # Keep-alive 網頁伺服器
 app = Flask('')
@@ -157,7 +163,6 @@ async def process_input(ctx, input_str, recommend):
     parts = input_str.strip().split('/')
     keys = ["level", "equip", "skill", "pet", "relic"]
 
-    # current_score 處理
     if '+' in parts[0]:
         try:
             current_score = int(eval(parts[0].replace('+', '')))
@@ -205,5 +210,4 @@ async def process_input(ctx, input_str, recommend):
 
     await ctx.send("\n".join(lines))
 
-# ✅ 在此貼上你的 Discord Bot Token
-bot.run("MTQzMjkwOTg3Mzg0MjA5ODI1OA.GojlaA.ExrdQMiKjJRHBDF3mq5ZUGqiQ2UzfKHLVJyg5M")
+bot.run(TOKEN)
