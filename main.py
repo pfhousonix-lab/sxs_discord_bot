@@ -131,12 +131,23 @@ def recommend_upgrades(score, raw):
 
 async def process_input(ctx, input_str, recommend):
     parts = input_str.strip().split('/')
+    if not parts:
+        msg = (
+            "❗ 輸入內容為空，請使用以下格式：\n"
+            "`[上季末總原初+]/等級/裝備/技能/寵物/遺物`\n"
+            "範例：`650+/192/175/170/170/18` 或 `/192/175/170/170/18`"
+        )
+        return await (ctx.respond(msg) if hasattr(ctx, "respond") else ctx.send(msg))
+
     if '+' in parts[0]:
         try:
             current_score = int(eval(parts[0].replace('+', '')))
         except:
-            await ctx.respond("❗ 無法解析上季末總原初表達式")
-            return
+            msg = (
+                "❗ 無法解析上季末總原初分數，請確認格式是否正確。\n"
+                "範例：`650+`、`0+`、或直接省略"
+            )
+            return await (ctx.respond(msg) if hasattr(ctx, "respond") else ctx.send(msg))
         parts = parts[1:]
     else:
         current_score = 0
@@ -144,13 +155,20 @@ async def process_input(ctx, input_str, recommend):
             parts = parts[1:]
 
     if len(parts) != 5:
-        await ctx.respond("❗ 請輸入格式為 [上季末總原初+]/等級/裝備/技能/寵物/遺物")
-        return
+        msg = (
+            "❗ 輸入格式錯誤，請使用以下格式：\n"
+            "`[上季末總原初+]/等級/裝備/技能/寵物/遺物`\n"
+            "範例：`650+/192/175/170/170/18` 或 `/192/175/170/170/18`"
+        )
+        return await (ctx.respond(msg) if hasattr(ctx, "respond") else ctx.send(msg))
 
     result, error = calculate_score(parts, current_score)
     if error:
-        await ctx.respond(error)
-        return
+        msg = (
+            f"{error}\n請確認該欄位為數字、平均值或加總公式。\n"
+            "範例：`170`、`169.6`、`170*3+169*2`"
+        )
+        return await (ctx.respond(msg) if hasattr(ctx, "respond") else ctx.send(msg))
 
     total_score = result["total_score"]
     lines = [
@@ -161,7 +179,8 @@ async def process_input(ctx, input_str, recommend):
     if recommend:
         lines.append("\n" + recommend_upgrades(total_score, result["raw"]))
 
-    await ctx.respond("\n".join(lines))
+    msg = "\n".join(lines)
+    await (ctx.respond(msg) if hasattr(ctx, "respond") else ctx.send(msg))
 
 @bot.slash_command(name="s2", description="計算原初之星分數")
 async def s2(ctx, input: str):
@@ -170,7 +189,7 @@ async def s2(ctx, input: str):
 @bot.slash_command(name="S2", description="計算原初之星分數並推薦提升")
 async def S2(ctx, input: str):
     await process_input(ctx, input, recommend=True)
-    
+
 @bot.slash_command(name="help", description="顯示使用說明")
 async def help(ctx):
     embed = discord.Embed(
@@ -206,6 +225,19 @@ async def help(ctx):
     embed.set_footer(text="如有格式錯誤，Bot 會提示你修正。")
     await ctx.respond(embed=embed)
 
+# 中文別名指令
+@bot.slash_command(name="原初", description="原初之星分數計算（與 /s2 相同）")
+async def yuan_chu(ctx, input: str):
+    await process_input(ctx, input, recommend=False)
+
+@bot.slash_command(name="原初推薦", description="原初之星分數計算並推薦提升（與 /S2 相同）")
+async def yuan_chu_recommend(ctx, input: str):
+    await process_input(ctx, input, recommend=True)
+
+@bot.slash_command(name="說明", description="顯示原初之星計算器使用說明（與 /help 相同）")
+async def shuoming(ctx):
+    await help(ctx)
+
 # 文字指令支援
 @bot.command()
 async def s2(ctx, *, input: str):
@@ -218,6 +250,12 @@ async def S2(ctx, *, input: str):
 @bot.command(name="help")
 async def help_command(ctx):
     await help(ctx)
+
+# 註冊 Slash 指令（必要）
+@bot.event
+async def on_ready():
+    await bot.sync_commands()
+    print(f"✅ Bot 已啟動：{bot.user}")
 
 # 啟動 Bot
 bot.run(os.getenv("DISCORD_TOKEN"))
