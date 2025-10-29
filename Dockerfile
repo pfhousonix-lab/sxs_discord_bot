@@ -1,12 +1,12 @@
 FROM python:3.11
 
-# 安裝系統層級依賴（audioop 需要 libc6-dev）
+# 安裝 audioop 所需的系統函式庫
 RUN apt-get update && apt-get install -y \
     gcc \
+    libasound2-dev \
     libffi-dev \
     libnss3 \
     libopus-dev \
-    libasound2-dev \
     && rm -rf /var/lib/apt/lists/*
 
 # 建立工作目錄
