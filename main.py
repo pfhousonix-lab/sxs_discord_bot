@@ -1,8 +1,8 @@
-import sys
-from flask import Flask
-from threading import Thread
 import discord
 from discord.ext import commands
+from discord import app_commands
+from flask import Flask
+from threading import Thread
 import math
 import os
 from dotenv import load_dotenv
@@ -23,7 +23,14 @@ Thread(target=run).start()
 # Discord Bot 設定
 intents = discord.Intents.default()
 intents.message_content = True
-bot = commands.Bot(command_prefix='!', intents=intents)
+bot = commands.Bot(command_prefix=['!', '！'], intents=intents)
+tree = bot.tree
+
+# Bot 啟動時同步 Slash 指令
+@bot.event
+async def on_ready():
+    await tree.sync()
+    print(f"✅ Bot 已啟動：{bot.user}")
 
 # 參數設定
 multipliers = {
@@ -48,11 +55,11 @@ season_max = {
     "relic": 13 * 20
 }
 reward_thresholds = [
-    (680, "經驗"),
-    (740, "昇華"),
-    (800, "寶石"),
-    (860, "加倍"),
-    (920, "經驗")
+    (680, "經驗加成"),
+    (740, "昇華機率"),
+    (800, "寶石加成"),
+    (860, "加倍機率"),
+    (920, "經驗加成")
 ]
 zh_names = {
     "level": "等級",
@@ -151,16 +158,8 @@ def recommend_upgrades(score, raw):
                 lines.append(f"- {zh_names[key]} +5 → 分數 {result['final_score']} ✅ {label}")
     return "\n".join(lines)
 
-# 指令處理
-@bot.command()
-async def s2(ctx, *, input_str):
-    await process_input(ctx, input_str, recommend=False)
-
-@bot.command()
-async def S2(ctx, *, input_str):
-    await process_input(ctx, input_str, recommend=True)
-
-async def process_input(ctx, input_str, recommend):
+# 指令處理核心
+async def process_input(ctx_or_interaction, input_str, recommend):
     parts = input_str.strip().split('/')
     keys = ["level", "equip", "skill", "pet", "relic"]
 
@@ -168,7 +167,7 @@ async def process_input(ctx, input_str, recommend):
         try:
             current_score = int(eval(parts[0].replace('+', '')))
         except:
-            await ctx.send("❗ 無法解析 current_score 表達式")
+            await ctx_or_interaction.response.send_message("❗ 無法解析上季末總原初表達式")
             return
         parts = parts[1:]
     else:
@@ -177,38 +176,49 @@ async def process_input(ctx, input_str, recommend):
             parts = parts[1:]
 
     if len(parts) != 5:
-        await ctx.send("❗ 請輸入格式為 [current_score+]/等級/裝備/技能/寵物/遺物")
+        await ctx_or_interaction.response.send_message("❗ 請輸入格式為 [上季末總原初+]/等級/裝備/技能/寵物/遺物")
         return
 
     result, error = calculate_score(parts, current_score)
     if error:
-        await ctx.send(error)
+        await ctx_or_interaction.response.send_message(error)
         return
 
-    raw = result["raw"]
-    adj = result["adj"]
-    weighted = result["weighted"]
-    total_weighted = result["total_weighted"]
-    final_score = result["final_score"]
     total_score = result["total_score"]
-
-    lines = []
-    lines.append("📊 原始值：")
-    for k in raw:
-        lines.append(f"{zh_names[k]}: {raw[k]:.2f}")
-    lines.append("\n🔧 扣除 season_max 後：")
-    for k in adj:
-        lines.append(f"{zh_names[k]}: {adj[k]:.2f}")
-    lines.append("\n📈 加權值：")
-    for k in weighted:
-        lines.append(f"{zh_names[k]}: {weighted[k]:.2f}")
-    lines.append(f"\n🧮 加權總分：{total_weighted:.0f}")
-    lines.append(f"🎯 最終分數：{final_score}（含 current_score：{total_score}）")
-    lines.append(get_reward_status(total_score))
+    lines = [
+        f"🌟 總原初之星：{total_score}",
+        get_reward_status(total_score)
+    ]
 
     if recommend:
-        lines.append("\n" + recommend_upgrades(total_score, raw))
+        lines.append("\n" + recommend_upgrades(total_score, result["raw"]))
 
-    await ctx.send("\n".join(lines))
+    await ctx_or_interaction.response.send_message("\n".join(lines))
 
-bot.run(TOKEN)
+# 文字指令
+@bot.command()
+async def s2(ctx, *, input_str):
+    await process_input(ctx, input_str, recommend=False)
+
+@bot.command()
+async def S2(ctx, *, input_str):
+    await process_input(ctx, input_str, recommend=True)
+
+@bot.command(name="help")
+async def help_command(ctx):
+    help_text = """
+📘 **原初之星計算器使用說明**
+
+指令格式：
+- `!s2 等級/裝備/技能/寵物/遺物`
+- `!s2 上季末總原初+/等級/裝備/技能/寵物/遺物`
+- `!S2`（大寫）會額外顯示推薦提升組合
+- 支援半形 `!` 與全形 `！`
+
+範例：
+- `!s2 /192/175/170/170/18`
+- `！S2 650+/192/175/170/170/18`
+
+回應內容：
+- 🌟 總原初之星：計算後的分數
+- 🎁 是否達成獎勵（例如
