@@ -1,17 +1,11 @@
 import discord
 from discord.ext import commands
-from discord import app_commands
 from flask import Flask
 from threading import Thread
 import math
 import os
-from dotenv import load_dotenv
 
-# 載入環境變數
-load_dotenv()
-TOKEN = os.getenv("DISCORD_TOKEN")
-
-# Keep-alive 網頁伺服器（供 Render 使用）
+# Keep-alive server for Render
 app = Flask('')
 @app.route('/')
 def home():
@@ -20,32 +14,14 @@ def run():
     app.run(host='0.0.0.0', port=8080)
 Thread(target=run).start()
 
-# Discord Bot 設定
+# Bot setup
 intents = discord.Intents.default()
 intents.message_content = True
-bot = commands.Bot(command_prefix=['!', '！'], intents=intents)
-tree = bot.tree
+bot = commands.Bot(command_prefix=["!", "！"], intents=intents)
 
-@bot.event
-async def on_ready():
-    await tree.sync()
-    print(f"✅ Bot 已啟動：{bot.user}")
-
-# 分數參數設定
-multipliers = {
-    "level": 1,
-    "equip": 5,
-    "skill": 8,
-    "pet": 4,
-    "relic": 20
-}
-weights = {
-    "level": 100,
-    "equip": 18,
-    "skill": 7,
-    "pet": 8,
-    "relic": 33
-}
+# 原初之星參數
+multipliers = {"level": 1, "equip": 5, "skill": 8, "pet": 4, "relic": 20}
+weights = {"level": 100, "equip": 18, "skill": 7, "pet": 8, "relic": 33}
 season_max = {
     "level": 130,
     "equip": 130 * 5,
@@ -158,15 +134,13 @@ def recommend_upgrades(score, raw):
     return "\n".join(lines)
 
 # 指令處理核心
-async def process_input(ctx_or_interaction, input_str, recommend):
+async def process_input(ctx, input_str, recommend):
     parts = input_str.strip().split('/')
-    keys = ["level", "equip", "skill", "pet", "relic"]
-
     if '+' in parts[0]:
         try:
             current_score = int(eval(parts[0].replace('+', '')))
         except:
-            await ctx_or_interaction.response.send_message("❗ 無法解析上季末總原初表達式")
+            await ctx.respond("❗ 無法解析上季末總原初表達式")
             return
         parts = parts[1:]
     else:
@@ -175,12 +149,12 @@ async def process_input(ctx_or_interaction, input_str, recommend):
             parts = parts[1:]
 
     if len(parts) != 5:
-        await ctx_or_interaction.response.send_message("❗ 請輸入格式為 [上季末總原初+]/等級/裝備/技能/寵物/遺物")
+        await ctx.respond("❗ 請輸入格式為 [上季末總原初+]/等級/裝備/技能/寵物/遺物")
         return
 
     result, error = calculate_score(parts, current_score)
     if error:
-        await ctx_or_interaction.response.send_message(error)
+        await ctx.respond(error)
         return
 
     total_score = result["total_score"]
@@ -192,39 +166,53 @@ async def process_input(ctx_or_interaction, input_str, recommend):
     if recommend:
         lines.append("\n" + recommend_upgrades(total_score, result["raw"]))
 
-    await ctx_or_interaction.response.send_message("\n".join(lines))
+    await ctx.respond("\n".join(lines))
 
-# 文字指令
-@bot.command()
-async def s2(ctx, *, input_str):
-    await process_input(ctx, input_str, recommend=False)
+# Slash 指令
+@bot.slash_command(name="s2", description="計算原初之星分數")
+async def s2(ctx, input: str):
+    await process_input(ctx, input, recommend=False)
 
-@bot.command()
-async def S2(ctx, *, input_str):
-    await process_input(ctx, input_str, recommend=True)
+@bot.slash_command(name="S2", description="計算原初之星分數並推薦提升")
+async def S2(ctx, input: str):
+    await process_input(ctx, input, recommend=True)
+
+@bot.slash_command(name="help", description="顯示使用說明")
+async def help(ctx):
+    embed = discord.Embed(
+        title="📘 原初之星計算器使用說明",
+        description="使用指令快速計算你的原初之星分數，並查看是否達成獎勵門檻。",
+        color=0x00bfff
+    )
+    embed.add_field(
+        name="📌 指令格式",
+        value=(
+            "/s2 等級/裝備/技能/寵物/遺物\n"
+            "/s2 上季末總原初+/等級/裝備/技能/寵物/遺物\n"
+            "/S2（大寫）會額外顯示推薦提升組合\n"
+            "*可輸入平均等級或各等級加總\n"
+            "*如 169.6 或 170*3+169*2"
+        ),
+        inline=False
+    )
+    embed.add_field(
+        name="📎 範例",
+        value="/s2 /192/175/170/170/18\n/S2 650+/192/175/170/170/18",
+        inline=False
+    )
+    embed.add_field(
+        name="📊 回應內容",
+        value=(
+            "🌟 總原初之星：計算後的分數\n"
+            "🎁 獎勵狀態：是否達成（如 經驗加成、昇華機率）\n"
+            "🔍 推薦提升組合：僅 `/S2` 指令顯示"
+        ),
+        inline=False
+    )
+    embed.set_footer(text="如有格式錯誤，Bot 會提示你修正。")
+    await ctx.respond(embed=embed)
 
 @bot.command(name="help")
 async def help_command(ctx):
-    help_text = """
-📘 原初之星計算器使用說明
-
-指令格式：
-- /s2 等級/裝備/技能/寵物/遺物
-- /s2 上季末總原初+/等級/裝備/技能/寵物/遺物
-- /S2（大寫）會額外顯示推薦提升組合
-*可輸入平均等級或各等級加總
-*如 169.6 或 170*3+169*2
-
-範例：
-- /s2 192/175/170/170/18
-- /S2 650+/192/175/170/170/18
-
-回應內容：
-- 🌟 總原初之星：計算後的分數
-- 🎁 是否達成獎勵（如 經驗加成、昇華機率）
-- 🔍 推薦提升組合（僅 /S2 指令）
-
-如有格式錯誤，Bot 會提示你修正。
-"""  # ← 這是結尾的三引號，不能漏！
-    await ctx.send(help_text)
+    await help(ctx)
     
