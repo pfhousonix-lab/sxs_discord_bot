@@ -190,8 +190,8 @@ async def s2(ctx, input: str):
 async def s2r(ctx, input: str):
     await process_input(ctx, input, recommend=True)
 
-@bot.slash_command(name="help", description="顯示使用說明")
-async def help(ctx):
+@bot.slash_command(name="guide", description="顯示使用說明")
+async def guide(ctx):
     embed = discord.Embed(
         title="📘 原初之星計算器使用說明",
         description="使用指令快速計算你的原初之星分數，並查看是否達成獎勵門檻。",
@@ -234,9 +234,9 @@ async def yuan_chu(ctx, input: str):
 async def yuan_chu_recommend(ctx, input: str):
     await process_input(ctx, input, recommend=True)
 
-@bot.slash_command(name="說明", description="顯示原初之星計算器使用說明（與 /help 相同）")
+@bot.slash_command(name="說明", description="顯示原初之星計算器使用說明（與 /guide 相同）")
 async def shuoming(ctx):
-    await help(ctx)
+    await guide(ctx)
 
 # 文字指令支援
 @bot.command()
@@ -247,9 +247,9 @@ async def s2(ctx, *, input: str):
 async def s2r(ctx, *, input: str):
     await process_input(ctx, input, recommend=True)
 
-@bot.command(name="help")
-async def help_command(ctx):
-    await help(ctx)
+@bot.command(name="guide")
+async def guide_command(ctx):
+    await guide(ctx)
 
 # 註冊 Slash 指令（必要）
 @bot.event
