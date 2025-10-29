@@ -186,8 +186,8 @@ async def process_input(ctx, input_str, recommend):
 async def s2(ctx, input: str):
     await process_input(ctx, input, recommend=False)
 
-@bot.slash_command(name="S2", description="計算原初之星分數並推薦提升")
-async def S2(ctx, input: str):
+@bot.slash_command(name="s2r", description="計算原初之星分數並推薦提升")
+async def s2r(ctx, input: str):
     await process_input(ctx, input, recommend=True)
 
 @bot.slash_command(name="help", description="顯示使用說明")
@@ -202,7 +202,7 @@ async def help(ctx):
         value=(
             "/s2 等級/裝備/技能/寵物/遺物\n"
             "/s2 上季末總原初+/等級/裝備/技能/寵物/遺物\n"
-            "/S2（大寫）會額外顯示推薦提升組合\n"
+            "/s2r 會額外顯示推薦提升組合\n"
             "*可輸入平均等級或各等級加總\n"
             "*如 169.6 或 170*3+169*2"
         ),
@@ -244,7 +244,7 @@ async def s2(ctx, *, input: str):
     await process_input(ctx, input, recommend=False)
 
 @bot.command()
-async def S2(ctx, *, input: str):
+async def s2r(ctx, *, input: str):
     await process_input(ctx, input, recommend=True)
 
 @bot.command(name="help")
