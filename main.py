@@ -91,171 +91,111 @@ def get_reward_status(score):
         return f"⛔ 尚未達成獎勵，距離下一階「{next_reward[1]}」還差 {diff} 分"
     return "⛔ 尚未達成任何獎勵"
 
-def recommend_upgrades(score, raw):
-    next_targets = [t for t in reward_thresholds if score < t[0]]
+def recommend_upgrades(current_final_score, raw):
+    next_targets = [t for t in reward_thresholds if current_final_score < t[0]]
     if not next_targets:
         return "🎉 已達成所有獎勵！"
 
     next_score = next_targets[0][0]
-    second_score = next_targets[1][0] if len(next_targets) > 1 else None
     keys = ["level", "equip", "skill", "pet", "relic"]
-    best = []
+    value_table = {key: weights[key] * multipliers[key] for key in keys}
 
-    for key in keys:
-        for delta in range(1, 11):
-            test_raw = raw.copy()
-            test_raw[key] += delta
-            test_parts = [str(test_raw[k]) for k in keys]
-            result, _ = calculate_score(test_parts, 0)
-            if result and result["final_score"] >= next_score:
-                best.append((key, delta, result["final_score"]))
-                break
+    from itertools import product
 
-    best.sort(key=lambda x: x[1])
-    lines = [f"🔍 推薦提升組合（達成 {next_score}）："]
-    for key, delta, new_score in best:
-        label = next(t[1] for t in reward_thresholds if new_score >= t[0])
-        lines.append(f"- {zh_names[key]} +{delta} → 分數 {new_score} ✅ {label}")
+    combos = []
+    for deltas in product(range(0, 11), repeat=5):
+        test_raw = raw.copy()
+        for i, key in enumerate(keys):
+            test_raw[key] += deltas[i]
+        test_parts = [str(test_raw[k]) for k in keys]
+        result, _ = calculate_score(test_parts, 0)
+        if result and result["final_score"] >= next_score:
+            total_value = sum(deltas[i] * value_table[keys[i]] for i in range(5))
+            combos.append((deltas, result["final_score"], total_value))
 
-    if second_score:
-        lines.append(f"\n🔮 進階推薦（達成 {second_score}）：")
-        for key in keys:
-            test_raw = raw.copy()
-            test_raw[key] += 5
-            test_parts = [str(test_raw[k]) for k in keys]
-            result, _ = calculate_score(test_parts, 0)
-            if result and result["final_score"] >= second_score:
-                label = next(t[1] for t in reward_thresholds if result["final_score"] >= t[0])
-                lines.append(f"- {zh_names[key]} +5 → 分數 {result['final_score']} ✅ {label}")
+    if not combos:
+        return f"⚠️ 無法在每欄最多 +10 的範圍內達成 {next_score} 分"
+
+    combos.sort(key=lambda x: -x[2])
+    top_combos = combos[:2]
+
+    lines = [f"🔍 效益最大推薦（達成 {next_score} 分）："]
+    for idx, (deltas, achieved_score, value) in enumerate(top_combos, 1):
+        label = next(t[1] for t in reward_thresholds if achieved_score >= t[0])
+        lines.append(f"\n📈 組合 {idx}（總效益 = {value:.1f}）：")
+        for i, delta in enumerate(deltas):
+            if delta > 0:
+                lines.append(f"- {zh_names[keys[i]]} +{delta}")
+        lines.append(f"✅ 達成獎勵：{label}（final_score = {achieved_score}）")
+
+    future_rewards = [t for t in reward_thresholds if achieved_score < t[0]]
+    if future_rewards:
+        lines.append("\n📌 下一階段獎勵預告：")
+        for i, (threshold, label) in enumerate(future_rewards[:2], 1):
+            lines.append(f"- 第 {i} 階：{label}（門檻 {threshold}）")
+
     return "\n".join(lines)
 
-async def process_input(ctx, input_str, recommend):
-    parts = input_str.strip().split('/')
-    if not parts:
-        msg = (
-            "❗ 輸入內容為空，請使用以下格式：\n"
-            "`[上季末總原初+]/等級/裝備/技能/寵物/遺物`\n"
-            "範例：`650+/192/175/170/170/18` 或 `/192/175/170/170/18`"
-        )
-        return await (ctx.respond(msg) if hasattr(ctx, "respond") else ctx.send(msg))
+@bot.slash_command(name="原初", description="計算原初之星分數")
+async def primal(ctx, input: str):
+    await process_input(ctx, input, recommend=False)
 
-    if '+' in parts[0]:
-        try:
-            current_score = int(eval(parts[0].replace('+', '')))
-        except:
-            msg = (
-                "❗ 無法解析上季末總原初分數，請確認格式是否正確。\n"
-                "範例：`650+`、`0+`、或直接省略"
-            )
-            return await (ctx.respond(msg) if hasattr(ctx, "respond") else ctx.send(msg))
-        parts = parts[1:]
-    else:
+@bot.slash_command(name="原初推薦", description="推薦原初之星提升組合")
+async def primal_plus(ctx, input: str):
+    await process_input(ctx, input, recommend=True)
+
+@bot.slash_command(name="help", description="顯示使用說明")
+async def help_cmd(ctx):
+    await ctx.respond(get_help_text())
+
+@bot.slash_command(name="說明", description="顯示使用說明（中文別名）")
+async def help_zh(ctx):
+    await ctx.respond(get_help_text())
+
+def get_help_text():
+    return (
+        "**📘 原初之星計算器使用說明：**\n"
+        "輸入格式：`目前分數+/等級/裝備/技能/寵物/遺物`\n"
+        "例如：`650+/192/175/170/170/18`\n\n"
+        "指令說明：\n"
+        "`/原初`：計算原初之星分數與獎勵狀態\n"
+        "`/原初推薦`：推薦最划算的提升組合\n"
+        "`/help` 或 `/說明`：顯示本說明"
+    )
+
+async def process_input(ctx, input: str, recommend: bool):
+    await ctx.defer()
+    try:
+        parts = input.split('/')
+        if len(parts) != 6:
+            await ctx.respond("⚠️ 輸入格式錯誤，請使用：`目前分數+/等級/裝備/技能/寵物/遺物`")
+            return
         current_score = 0
-        if len(parts) == 6:
-            parts = parts[1:]
-
-    if len(parts) != 5:
-        msg = (
-            "❗ 輸入格式錯誤，請使用以下格式：\n"
-            "`[上季末總原初+]/等級/裝備/技能/寵物/遺物`\n"
-            "範例：`650+/192/175/170/170/18` 或 `/192/175/170/170/18`"
-        )
-        return await (ctx.respond(msg) if hasattr(ctx, "respond") else ctx.send(msg))
-
-    result, error = calculate_score(parts, current_score)
-    if error:
-        msg = (
-            f"{error}\n請確認該欄位為數字、平均值或加總公式。\n"
-            "範例：`170`、`169.6`、`170*3+169*2`"
-        )
-        return await (ctx.respond(msg) if hasattr(ctx, "respond") else ctx.send(msg))
-
-    total_score = result["total_score"]
-    lines = [
-        f"🌟 總原初之星：{total_score}",
-        get_reward_status(total_score)
-    ]
-
-    if recommend:
-        lines.append("\n" + recommend_upgrades(total_score, result["raw"]))
-
-    msg = "\n".join(lines)
-    await (ctx.respond(msg) if hasattr(ctx, "respond") else ctx.send(msg))
-
-@bot.slash_command(name="s2", description="計算原初之星分數")
-async def s2(ctx, input: str):
-    await process_input(ctx, input, recommend=False)
-
-@bot.slash_command(name="s2r", description="計算原初之星分數並推薦提升")
-async def s2r(ctx, input: str):
-    await process_input(ctx, input, recommend=True)
-
-@bot.slash_command(name="guide", description="顯示使用說明")
-async def guide(ctx):
-    embed = discord.Embed(
-        title="📘 原初之星計算器使用說明",
-        description="使用指令快速計算你的原初之星分數，並查看是否達成獎勵門檻。",
-        color=0x00bfff
-    )
-    embed.add_field(
-        name="📌 指令格式",
-        value=(
-            "/s2 等級/裝備/技能/寵物/遺物\n"
-            "/s2 上季末總原初+/等級/裝備/技能/寵物/遺物\n"
-            "/s2r 會額外顯示推薦提升組合\n"
-            "*可輸入平均等級或各等級加總\n"
-            "*如 169.6 或 170*3+169*2"
-        ),
-        inline=False
-    )
-    embed.add_field(
-        name="📎 範例",
-        value="/s2 /192/175/170/170/18\n/S2 650+/192/175/170/170/18",
-        inline=False
-    )
-    embed.add_field(
-        name="📊 回應內容",
-        value=(
-            "🌟 總原初之星：計算後的分數\n"
-            "🎁 獎勵狀態：是否達成（如 經驗加成、昇華機率）\n"
-            "🔍 推薦提升組合：僅 `/S2` 指令顯示"
-        ),
-        inline=False
-    )
-    embed.set_footer(text="如有格式錯誤，Bot 會提示你修正。")
-    await ctx.respond(embed=embed)
-
-# 中文別名指令
-@bot.slash_command(name="原初", description="原初之星分數計算（與 /s2 相同）")
-async def yuan_chu(ctx, input: str):
-    await process_input(ctx, input, recommend=False)
-
-@bot.slash_command(name="原初推薦", description="原初之星分數計算並推薦提升（與 /S2 相同）")
-async def yuan_chu_recommend(ctx, input: str):
-    await process_input(ctx, input, recommend=True)
-
-@bot.slash_command(name="說明", description="顯示原初之星計算器使用說明（與 /guide 相同）")
-async def shuoming(ctx):
-    await guide(ctx)
-
-# 文字指令支援
-@bot.command()
-async def s2(ctx, *, input: str):
-    await process_input(ctx, input, recommend=False)
-
-@bot.command()
-async def s2r(ctx, *, input: str):
-    await process_input(ctx, input, recommend=True)
-
-@bot.command(name="guide")
-async def guide_command(ctx):
-    await guide(ctx)
-
-# 註冊 Slash 指令（必要）
-@bot.event
-async def on_ready():
-    await bot.sync_commands()
-    print(f"✅ Bot 已啟動：{bot.user}")
+        if '+' in parts[0]:
+            try:
+                current_score = int(parts[0].replace('+', ''))
+            except:
+                await ctx.respond("⚠️ 首欄目前分數格式錯誤")
+                return
+        result, error = calculate_score(parts[1:], current_score)
+        if error:
+            await ctx.respond(error)
+            return
+        lines = [
+            f"🌟 總原初之星：{result['total_score']}",
+            get_reward_status(result["total_score"])
+        ]
+        if not recommend:
+            future_rewards = [t for t in reward_thresholds if result["final_score"] < t[0]]
+            if future_rewards:
+                lines.append("\n📌 下一階段獎勵預告：")
+                for i, (threshold, label) in enumerate(future_rewards[:2], 1):
+                    lines.append(f"- 第 {i} 階：{label}（門檻 {threshold}）")
+        else:
+            lines.append("\n" + recommend_upgrades(result["final_score"], result["raw"]))
+        await ctx.respond("\n".join(lines))
+    except Exception as e:
+        await ctx.respond(f"⚠️ 發生錯誤：{str(e)}")
 
 # 啟動 Bot
-bot.run(os.getenv("DISCORD_TOKEN"))
+bot.run(os.environ['TOKEN'])
