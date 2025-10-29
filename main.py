@@ -205,7 +205,7 @@ async def S2(ctx, *, input_str):
 
 @bot.command(name="help")
 async def help_command(ctx):
-    help_text = """
+    help_text = "
 📘 **原初之星計算器使用說明**
 
 指令格式：
@@ -218,4 +218,4 @@ async def help_command(ctx):
 
 範例：
 - `/s2 /192/175/170/170/18`
--
+"
