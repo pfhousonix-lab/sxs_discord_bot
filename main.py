@@ -264,3 +264,7 @@ def get_help_embed():
     )
     embed.set_footer(text="由原初之星計算器提供 ✨")
     return embed
+    
+if __name__ == "__main__":
+    bot.run(os.getenv("DISCORD_TOKEN"))
+    
