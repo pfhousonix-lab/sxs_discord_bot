@@ -11,7 +11,7 @@ from dotenv import load_dotenv
 load_dotenv()
 TOKEN = os.getenv("DISCORD_TOKEN")
 
-# Keep-alive 網頁伺服器
+# Keep-alive 網頁伺服器（供 Render 使用）
 app = Flask('')
 @app.route('/')
 def home():
@@ -26,7 +26,6 @@ intents.message_content = True
 bot = commands.Bot(command_prefix=['!', '！'], intents=intents)
 tree = bot.tree
 
-# Bot 啟動時同步 Slash 指令
 @bot.event
 async def on_ready():
     await tree.sync()
@@ -220,5 +219,4 @@ async def help_command(ctx):
 - `！S2 650+/192/175/170/170/18`
 
 回應內容：
-- 🌟 總原初之星：計算後的分數
-- 🎁 是否達成獎勵（例如
+- 🌟 總原初之星：計算
