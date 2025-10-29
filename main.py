@@ -44,7 +44,6 @@ zh_names = {
     "relic": "遺物"
 }
 
-# 數值解析
 def evaluate_value(value_str, multiplier):
     value_str = value_str.replace(' ', '')
     try:
@@ -60,7 +59,6 @@ def evaluate_value(value_str, multiplier):
         except:
             return None
 
-# 分數計算
 def calculate_score(parts, current_score):
     keys = ["level", "equip", "skill", "pet", "relic"]
     raw, adj, weighted = {}, {}, {}
@@ -83,7 +81,6 @@ def calculate_score(parts, current_score):
         "total_score": total_score
     }, None
 
-# 獎勵判斷
 def get_reward_status(score):
     for threshold, label in reversed(reward_thresholds):
         if score >= threshold:
@@ -94,7 +91,6 @@ def get_reward_status(score):
         return f"⛔ 尚未達成獎勵，距離下一階「{next_reward[1]}」還差 {diff} 分"
     return "⛔ 尚未達成任何獎勵"
 
-# 推薦提升組合
 def recommend_upgrades(score, raw):
     next_targets = [t for t in reward_thresholds if score < t[0]]
     if not next_targets:
@@ -133,7 +129,6 @@ def recommend_upgrades(score, raw):
                 lines.append(f"- {zh_names[key]} +5 → 分數 {result['final_score']} ✅ {label}")
     return "\n".join(lines)
 
-# 指令處理核心
 async def process_input(ctx, input_str, recommend):
     parts = input_str.strip().split('/')
     if '+' in parts[0]:
@@ -168,7 +163,6 @@ async def process_input(ctx, input_str, recommend):
 
     await ctx.respond("\n".join(lines))
 
-# Slash 指令
 @bot.slash_command(name="s2", description="計算原初之星分數")
 async def s2(ctx, input: str):
     await process_input(ctx, input, recommend=False)
@@ -176,7 +170,7 @@ async def s2(ctx, input: str):
 @bot.slash_command(name="S2", description="計算原初之星分數並推薦提升")
 async def S2(ctx, input: str):
     await process_input(ctx, input, recommend=True)
-
+    
 @bot.slash_command(name="help", description="顯示使用說明")
 async def help(ctx):
     embed = discord.Embed(
@@ -212,7 +206,18 @@ async def help(ctx):
     embed.set_footer(text="如有格式錯誤，Bot 會提示你修正。")
     await ctx.respond(embed=embed)
 
+# 文字指令支援
+@bot.command()
+async def s2(ctx, *, input: str):
+    await process_input(ctx, input, recommend=False)
+
+@bot.command()
+async def S2(ctx, *, input: str):
+    await process_input(ctx, input, recommend=True)
+
 @bot.command(name="help")
 async def help_command(ctx):
     await help(ctx)
-    
+
+# 啟動 Bot
+bot.run(os.getenv("DISCORD_TOKEN"))
