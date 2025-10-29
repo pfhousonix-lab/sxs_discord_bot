@@ -1,3 +1,5 @@
+import sys
+sys.modules['audioop'] = None  # 避免 Render 環境 audioop 錯誤
 from flask import Flask
 from threading import Thread
 import discord
