@@ -195,7 +195,13 @@ async def process_input(ctx, input: str, recommend: bool):
 
         if recommend:
             lines.append("\n" + recommend_upgrades(result['final_score'], result['raw']))
-
+        else:
+            future_rewards = [t for t in reward_thresholds if achieved_score < t[0]]
+            if future_rewards:
+                lines.append("\n📌 下一階段獎勵預告：")
+                for i, (threshold, label) in enumerate(future_rewards[:2], 1):
+                    lines.append(f"- 第 {i} 階：{label}（門檻 {threshold}）")
+                    
         await ctx.respond("\n".join(lines))
     except Exception as e:
         await ctx.respond(f"⚠️ 發生錯誤：{str(e)}")
