@@ -264,9 +264,9 @@ async def today_style(ctx):
     styles = ["蒙眼幫", "眼鏡幫", "鐮刀幫", "不入幫"]
     style_emojis = {"蒙眼幫": "🫣", "眼鏡幫": "👓", "鐮刀幫": "🪓", "不入幫": "🙈"}
 
-    # 加權表（可擴充）
-
-
+    # 加權表
+    from hexagram_weights import hexagram_weights
+    
     base_probs = {"double": 25, "red": 2, "ascend": 5}
     result_lines = []
 
