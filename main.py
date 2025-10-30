@@ -99,25 +99,35 @@ def recommend_upgrades(current_final_score, raw):
     next_targets = [t for t in reward_thresholds if current_final_score < t[0]]
     if not next_targets:
         return "🎉 已達成所有獎勵！"
+    
     next_score = next_targets[0][0]
     keys = ["level", "equip", "skill", "pet", "relic"]
     value_table = {key: weights[key] * multipliers[key] for key in keys}
     step_table = {key: 1 / multipliers[key] for key in keys}
-    step_counts = 40
-    from itertools import product
+    step_counts = 10  # 每欄 11 個值
+    sample_size = 100  # 抽樣組合數
+
+    # 建立每欄的 step 值範圍
     step_ranges = {
         key: [round(i * step_table[key], 3) for i in range(step_counts + 1)]
         for key in keys
     }
+
+    # 所有可能組合（仍會很多）
+    all_combos = list(product(*[step_ranges[k] for k in keys]))
+    sampled_combos = random.sample(all_combos, min(sample_size, len(all_combos)))
+
     strategy_weights = {
         "裝備主導": {"equip": 3},
         "遺物主導": {"relic": 3},
         "綜合提升": {}
     }
+
     combos_by_strategy = {}
+
     for strategy, bias in strategy_weights.items():
         combos = []
-        for deltas in product(*[step_ranges[k] for k in keys]):
+        for deltas in sampled_combos:
             test_raw = raw.copy()
             for i, key in enumerate(keys):
                 test_raw[key] += deltas[i]
@@ -136,8 +146,10 @@ def recommend_upgrades(current_final_score, raw):
         if combos:
             combos.sort(key=lambda x: x[2])
             combos_by_strategy[strategy] = combos[0]
+
     if not combos_by_strategy:
-        return f"⚠️ 無法在每欄最多提升 2.0 的範圍內達成 {next_score} 分"
+        return f"⚠️ 無法在隨機抽樣中找到達成 {next_score} 分的組合"
+
     lines = [f"🔍 三種推薦策略（達成 {next_score} 分）："]
     for label, (deltas, achieved_score, _) in combos_by_strategy.items():
         reward = next(t[1] for t in reward_thresholds if achieved_score >= t[0])
@@ -148,13 +160,9 @@ def recommend_upgrades(current_final_score, raw):
                 new_value = raw[key] + delta
                 lines.append(f"- {zh_names[key]} +{delta:.3f} → {new_value:.3f}")
         lines.append(f"✅ 達成獎勵：{reward}")
-    future_rewards = [t for t in reward_thresholds if achieved_score < t[0]]
-    if future_rewards:
-        lines.append("\n📌 下一階段獎勵預告：")
-        for i, (threshold, label) in enumerate(future_rewards[:2], 1):
-            lines.append(f"- 第 {i} 階：{label}（門檻 {threshold}）")
+        
     return "\n".join(lines)
-
+    
 def safe_eval(expr):
     expr = re.sub(r'[^0-9\+\*\.\s]', '', expr)
     try:
