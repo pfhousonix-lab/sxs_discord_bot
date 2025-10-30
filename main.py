@@ -204,7 +204,7 @@ async def process_input(ctx, input: str, recommend: bool):
         if recommend:
             lines.append("\n" + recommend_upgrades(result['final_score'], result['raw']))
         else:
-            future_rewards = [t for t in reward_thresholds if achieved_score < t[0]]
+            future_rewards = [t for t in reward_thresholds if total_score < t[0]]
             if future_rewards:
                 lines.append("\n📌 下一階段獎勵預告：")
                 for i, (threshold, label) in enumerate(future_rewards[:2], 1):
@@ -341,10 +341,10 @@ async def today_style(ctx):
     await ctx.respond(embed=embed)
 
 @bot.slash_command(name="隨機", description="從選項中隨機選一個")
-async def random_choice(ctx, options: Option(str, "以 / 分隔選項（最多 20 個）")):
-    items = [o.strip() for o in options.split('/') if o.strip()]
+async def random_choice(ctx, options: Option(str, "以空白分隔選項（最多 20 個）")):
+    items = [o.strip() for o in options.split() if o.strip()]
     if len(items) < 2:
-        await ctx.respond("⚠️ 請提供至少兩個選項，以 `/` 分隔")
+        await ctx.respond("⚠️ 請提供至少兩個選項，以空白分隔")
         return
     if len(items) > 20:
         await ctx.respond("⚠️ 最多只能提供 20 個選項")
@@ -354,10 +354,10 @@ async def random_choice(ctx, options: Option(str, "以 / 分隔選項（最多 2
 
 @bot.slash_command(name="隨機多選", description="從選項中隨機選擇多個")
 async def random_multi(ctx,
-    options: Option(str, "以 / 分隔選項（最多 20 個）"),
+    options: Option(str, "以空白分隔選項（最多 20 個）"),
     count: Option(int, "要選幾個", min_value=1, max_value=20)
 ):
-    items = [o.strip() for o in options.split('/') if o.strip()]
+    items = [o.strip() for o in options.split() if o.strip()]
     if len(items) < count:
         await ctx.respond(f"⚠️ 選項不足，你提供了 {len(items)} 個，但要求選 {count} 個")
         return
@@ -366,11 +366,11 @@ async def random_multi(ctx,
         return
     selected = random.sample(items, count)
     await ctx.respond(f"🎲 隨機選出 {count} 個：\n- " + "\n- ".join(selected))
-    
-@bot.slash_command(name="經驗值", description="開啟經驗值計算機")
+
+@bot.slash_command(name="經驗值計算機", description="開啟經驗值計算機")
 async def exp_link(ctx):
     await ctx.respond("📘 經驗值計算機入口：http://m9.ctymc.cn:20822/")
-    
+
 @bot.slash_command(name="說明", description="顯示所有指令說明")
 async def help(ctx):
     lines = [
@@ -379,9 +379,9 @@ async def help(ctx):
         "/原初推薦：推薦如何提升原初之星",
         "/原初獎勵：查看原初獎勵階段",
         "/今日造型：根據卦象推薦副本造型",
-        "/隨機：從選項中隨機選一個（用 `/` 分隔）",
+        "/隨機：從選項中隨機選一個",
         "/隨機多選：從選項中隨機選多個",
-        "/經驗值：開啟經驗值計算機",
+        "/經驗值計算機：開啟經驗值計算機",
         "/說明：顯示這份說明"
     ]
     await ctx.respond("\n".join(lines))
