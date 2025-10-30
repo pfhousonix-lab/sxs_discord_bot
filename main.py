@@ -201,7 +201,7 @@ async def process_input(ctx, input: str, recommend: bool):
                 await ctx.respond(f"⚠️ 無法解析欄位：`{val}`，請確認格式正確（可使用加法與乘法）")
                 return
 
-        result, error = ([str(v) for v in values], current_score)
+        result, error = calculate_score([str(v) for v in values], current_score)
         if error:
             await ctx.respond(error)
             return
