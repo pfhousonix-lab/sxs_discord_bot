@@ -204,7 +204,7 @@ async def process_input(ctx, input: str, recommend: bool):
         if recommend:
             lines.append("\n" + recommend_upgrades(result['final_score'], result['raw']))
         else:
-            future_rewards = [t for t in reward_thresholds if total_score < t[0]]
+            future_rewards = [t for t in reward_thresholds if result['total_score'] < t[0]]
             if future_rewards:
                 lines.append("\n📌 下一階段獎勵預告：")
                 for i, (threshold, label) in enumerate(future_rewards[:2], 1):
