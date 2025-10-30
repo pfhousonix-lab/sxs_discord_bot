@@ -9,7 +9,6 @@ import json
 import random
 from datetime import datetime
 from discord import Option
-import textwrap
 
 # Keep-alive server for Render
 app = Flask('')
@@ -260,9 +259,10 @@ async def today_style(ctx):
     # 載入卦象敘述 JSON
     hexagram_descriptions = load_hexagram_descriptions()
     hexagram_text = rng.choice(hexagram_descriptions.get(hexagram_key, [f"{hexagram_key}：今日副本運勢平穩。"]))
-
-    # 自動換行（每行最多 25 字）
-    hexagram_text = "\n".join(textwrap.wrap(hexagram_text, width=25))
+    
+    # 將六句以逗號分隔，並每兩句合併為一行
+    segments = hexagram_text.split("，")
+    hexagram_text = "\n".join(["，".join(segments[i:i+2]) for i in range(0, len(segments), 2)])
     
     # 幫派與 emoji
     styles = ["蒙眼幫", "眼鏡幫", "鐮刀幫", "不入幫"]
@@ -293,9 +293,7 @@ async def today_style(ctx):
         title="🎭 今日造型報告",
         description=(
             f"👤 使用者：{username}\n📅 {now.strftime('%Y/%m/%d')}（{chinese_hour}時）\n\n"
-            "📘 看看今天各幫的副本運勢（每幫執行 4 次判定）：\n"
             "🫣 蒙眼幫｜👓 眼鏡幫｜🪓 鐮刀幫｜🙈 不入幫\n"
-            "每個幫派各自執行副本運勢判定，包含：\n"
             "✅ 加倍效果｜✨ 紅金裝｜🌟 昇華金裝\n\n"
             f"🔮 卦象：{hexagram_title}（{hexagram_text}）"
         ),
