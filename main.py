@@ -257,8 +257,8 @@ async def today_style(ctx):
     hexagram_title = hexagram_names.get(hexagram_key, f"{hexagram_key}（未知卦）")
 
     # 載入卦象敘述 JSON
-    hexagrams = load_hexagram_descriptions()
-    hexagram_text = rng.choice(hexagrams.get(hexagram_key, [f"{hexagram_title}：今日副本運勢平穩。"]))
+    hexagram_descriptions = load_hexagram_descriptions()
+    hexagram_text = rng.choice(hexagram_descriptions.get(hexagram_key, [f"{hexagram_key}：今日副本運勢平穩。"]))
 
     # 幫派與 emoji
     styles = ["蒙眼幫", "眼鏡幫", "鐮刀幫", "不入幫"]
