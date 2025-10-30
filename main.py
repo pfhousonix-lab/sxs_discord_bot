@@ -366,7 +366,11 @@ async def random_multi(ctx,
         return
     selected = random.sample(items, count)
     await ctx.respond(f"🎲 隨機選出 {count} 個：\n- " + "\n- ".join(selected))
-
+    
+@bot.slash_command(name="經驗值", description="開啟經驗值計算機")
+async def exp_link(ctx):
+    await ctx.respond("📘 經驗值計算機入口：http://m9.ctymc.cn:20822/")
+    
 @bot.slash_command(name="說明", description="顯示所有指令說明")
 async def help(ctx):
     lines = [
@@ -377,6 +381,7 @@ async def help(ctx):
         "/今日造型：根據卦象推薦副本造型",
         "/隨機：從選項中隨機選一個（用 `/` 分隔）",
         "/隨機多選：從選項中隨機選多個",
+        "/經驗值：開啟經驗值計算機",
         "/說明：顯示這份說明"
     ]
     await ctx.respond("\n".join(lines))
