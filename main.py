@@ -1,19 +1,8 @@
 import discord
 from discord.ext import commands
-from flask import Flask
-from threading import Thread
 import math
 import os
 import statistics
-
-# Keep-alive server for Render
-app = Flask('')
-@app.route('/')
-def home():
-    return "I'm alive!"
-def run():
-    app.run(host='0.0.0.0', port=8080)
-Thread(target=run).start()
 
 # Bot setup
 intents = discord.Intents.default()
@@ -233,6 +222,10 @@ def get_help_embed():
     )
     embed.set_footer(text="由原初之星計算器提供 ✨")
     return embed
-
+    
+@bot.event
+async def on_ready():
+    print(f"✅ Bot 已上線：{bot.user}")
+    
 # 啟動 Bot
 bot.run(os.getenv("DISCORD_TOKEN"))
