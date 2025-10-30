@@ -260,6 +260,9 @@ async def today_style(ctx):
     hexagram_descriptions = load_hexagram_descriptions()
     hexagram_text = rng.choice(hexagram_descriptions.get(hexagram_key, [f"{hexagram_key}：今日副本運勢平穩。"]))
 
+    # 自動換行（每行最多 25 字）
+    hexagram_text = "\n".join(textwrap.wrap(hexagram_text, width=25))
+    
     # 幫派與 emoji
     styles = ["蒙眼幫", "眼鏡幫", "鐮刀幫", "不入幫"]
     style_emojis = {"蒙眼幫": "🫣", "眼鏡幫": "👓", "鐮刀幫": "🪓", "不入幫": "🙈"}
