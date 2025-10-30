@@ -94,33 +94,7 @@ def get_reward_status(score):
     if next_target:
         return f"⛔ 尚未達成獎勵，距離下一階「{next_target[1]}」還差 {next_target[0] - score} 分"
     return "⛔ 尚未達成任何獎勵"
-
-def try_strategy(mod_keys):
-    test_raw = raw.copy()
-    deltas = [0.0] * len(keys)
-    for i, key in enumerate(keys):
-        if key in mod_keys:
-            for delta in step_ranges[key]:
-                test_raw[key] = raw[key] + delta
-                test_parts = [str(test_raw[k]) for k in keys]
-                result, _ = calculate_score(test_parts, 0)
-                if result and result["final_score"] >= next_score:
-                    deltas[i] = delta
-                    return deltas, result["final_score"]
-            # 若單一欄位無法達標，保留最大值
-            deltas[i] = max(step_ranges[key])
-            test_raw[key] = raw[key] + deltas[i]
-    # 第二輪嘗試其他欄位補足
-    for i, key in enumerate(keys):
-        if key not in mod_keys and key in ["equip", "relic", "skill", "pet"]:
-            for delta in step_ranges[key]:
-                test_raw[key] = raw[key] + delta
-                test_parts = [str(test_raw[k]) for k in keys]
-                result, _ = calculate_score(test_parts, 0)
-                if result and result["final_score"] >= next_score:
-                    deltas[i] = delta
-                    return deltas, result["final_score"]
-    return None, None
+from itertools import product
 
 def recommend_upgrades(current_final_score, raw):
     next_targets = [t for t in reward_thresholds if current_final_score < t[0]]
@@ -133,22 +107,51 @@ def recommend_upgrades(current_final_score, raw):
     step_table = {key: 1 / multipliers[key] for key in keys}
     step_counts = 10
 
-    # 建立每欄的 step 值範圍（加權後不得超過 max_increase * multiplier）
+    # 建立每欄的 step 值範圍（加權後不得超過 max_increase）
     step_ranges = {
         key: [round(i * step_table[key], 3) for i in range(1, step_counts + 1)
               if i * step_table[key] * multipliers[key] <= max_increase * multipliers[key]]
         for key in keys
     }
-    
+
+    def find_minimal_combo(target_keys):
+        ranges = [step_ranges[k] for k in target_keys]
+        best_combo = None
+
+        for combo in product(*ranges):
+            test_raw = raw.copy()
+            deltas = [0.0] * len(keys)
+            for i, key in enumerate(target_keys):
+                idx = keys.index(key)
+                test_raw[key] += combo[i]
+                deltas[idx] = combo[i]
+            test_parts = [str(test_raw[k]) for k in keys]
+            result, _ = calculate_score(test_parts, 0)
+            if result and result["final_score"] >= next_score:
+                # 測試是否任一欄位減一階就會不達標
+                is_minimal = True
+                for i, key in enumerate(target_keys):
+                    if combo[i] > 0:
+                        test_raw[key] -= step_table[key]
+                        test_parts = [str(test_raw[k]) for k in keys]
+                        test_result, _ = calculate_score(test_parts, 0)
+                        test_raw[key] += step_table[key]  # 還原
+                        if test_result and test_result["final_score"] >= next_score:
+                            is_minimal = False
+                            break
+                if is_minimal:
+                    return deltas, result["final_score"]
+        return None, None
+
     strategies = {
-        "裝備優先": ["equip"],
-        "遺物優先": ["relic"],
+        "裝備優先": ["equip", "relic"],
+        "遺物優先": ["relic", "equip"],
         "平均提升": ["equip", "relic", "skill", "pet"]
     }
 
     lines = [f"🔍 三種推薦策略（目標 {next_score} 分）："]
     for label, mod_keys in strategies.items():
-        deltas, achieved_score = try_strategy(mod_keys)
+        deltas, achieved_score = find_minimal_combo(mod_keys)
         if not deltas:
             lines.append(f"\n❌ {label}：無法在限制內達成目標分數")
             continue
