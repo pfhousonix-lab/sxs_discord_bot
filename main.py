@@ -182,7 +182,7 @@ async def process_input(ctx, input: str, recommend: bool):
             current_score = 0
             values = parts
         else:
-            await ctx.respond("⚠️ 輸入格式錯誤，請使用 `目前分數+/等級/裝備/技能/寵物/遺物` 或 `等級/裝備/技能/寵物/遺物`")
+            await ctx.respond("⚠️ 輸入格式錯誤，請使用 `上季末分數+/等級/裝備/技能/寵物/遺物` 或 `等級/裝備/技能/寵物/遺物`")
             return
 
         for val in values:
@@ -198,7 +198,7 @@ async def process_input(ctx, input: str, recommend: bool):
 
         lines = [
             f"⭐ 原初之星：{result['final_score']} 分",
-            f"📊 總分（含目前）：{result['total_score']} 分",
+            f"📊 總分（含上季）：{result['total_score']} 分",
             get_reward_status(result['total_score'])
         ]
 
@@ -216,7 +216,7 @@ async def process_input(ctx, input: str, recommend: bool):
         await ctx.respond(f"⚠️ 發生錯誤：{str(e)}")
 
 @bot.slash_command(name="原初", description="計算原初之星分數")
-async def calc(ctx, input: Option(str, "格式：等級/裝備/技能/寵物/遺物 或 +目前分數/等級/裝備/技能/寵物/遺物")):
+async def calc(ctx, input: Option(str, "格式：等級/裝備/技能/寵物/遺物 或 +上季末分數/等級/裝備/技能/寵物/遺物")):
     await process_input(ctx, input, recommend=False)
 
 @bot.slash_command(name="原初推薦", description="推薦如何提升原初之星")
