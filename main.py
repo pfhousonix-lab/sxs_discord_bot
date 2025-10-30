@@ -161,6 +161,7 @@ def recommend_upgrades(current_final_score, raw, current_score):
         lines.append(f"📊 最終分數：{achieved_score} 分")
 
     return "\n"
+    
 def safe_eval(expr):
     expr = re.sub(r'[^0-9\+\*\.\s]', '', expr)
     try:
@@ -198,16 +199,16 @@ async def process_input(ctx, input: str, recommend: bool):
             f"📊 總分（含上季）：{result['total_score']} 分",
             get_reward_status(result['total_score'])
         ]
-
+        
+        future_rewards = [t for t in reward_thresholds if result['total_score'] < t[0]]
+        if future_rewards:
+            lines.append("\n📌 下一階段獎勵預告：")
+            for i, (threshold, label) in enumerate(future_rewards[:2], 1):
+                lines.append(f"- 第 {i} 階：{label}（門檻 {threshold}）")
+                
         if recommend:
             lines.append("\n" + recommend_upgrades(result['total_score'], result['raw'], current_score))
-        else:
-            future_rewards = [t for t in reward_thresholds if result['total_score'] < t[0]]
-            if future_rewards:
-                lines.append("\n📌 下一階段獎勵預告：")
-                for i, (threshold, label) in enumerate(future_rewards[:2], 1):
-                    lines.append(f"- 第 {i} 階：{label}（門檻 {threshold}）")
-                    
+
         await ctx.respond("\n".join(lines))
     except Exception as e:
         await ctx.respond(f"⚠️ 發生錯誤：{str(e)}")
