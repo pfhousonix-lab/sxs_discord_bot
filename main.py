@@ -55,6 +55,66 @@ def get_reward_status(score):
     if next_target:
         return f"⛔ 尚未達成獎勵，距離下一階「{next_target[1]}」還差 {next_target[0] - score} 分"
     return "⛔ 尚未達成任何獎勵"
+    
+def recommend_upgrades(current_final_score, raw):
+    next_targets = [t for t in reward_thresholds if current_final_score < t[0]]
+    if not next_targets:
+        return "🎉 已達成所有獎勵！"
+    next_score = next_targets[0][0]
+    keys = ["level", "equip", "skill", "pet", "relic"]
+    value_table = {key: weights[key] * multipliers[key] for key in keys}
+    step_table = {key: 1 / multipliers[key] for key in keys}
+    step_counts = 40
+    from itertools import product
+    step_ranges = {
+        key: [round(i * step_table[key], 3) for i in range(step_counts + 1)]
+        for key in keys
+    }
+    strategy_weights = {
+        "裝備主導": {"equip": 3},
+        "遺物主導": {"relic": 3},
+        "綜合提升": {}
+    }
+    combos_by_strategy = {}
+    for strategy, bias in strategy_weights.items():
+        combos = []
+        for deltas in product(*[step_ranges[k] for k in keys]):
+            test_raw = raw.copy()
+            for i, key in enumerate(keys):
+                test_raw[key] += deltas[i]
+            test_parts = [str(test_raw[k]) for k in keys]
+            result, _ = calculate_score(test_parts, 0)
+            if result and result["final_score"] >= next_score:
+                if strategy == "綜合提升":
+                    stddev = statistics.stdev(deltas)
+                    combos.append((deltas, result["final_score"], stddev))
+                else:
+                    total_value = sum(
+                        deltas[i] * value_table[keys[i]] * bias.get(keys[i], 1)
+                        for i in range(5)
+                    )
+                    combos.append((deltas, result["final_score"], -total_value))
+        if combos:
+            combos.sort(key=lambda x: x[2])
+            combos_by_strategy[strategy] = combos[0]
+    if not combos_by_strategy:
+        return f"⚠️ 無法在每欄最多提升 2.0 的範圍內達成 {next_score} 分"
+    lines = [f"🔍 三種推薦策略（達成 {next_score} 分）："]
+    for label, (deltas, achieved_score, _) in combos_by_strategy.items():
+        reward = next(t[1] for t in reward_thresholds if achieved_score >= t[0])
+        lines.append(f"\n🎯 {label}：")
+        for i, delta in enumerate(deltas):
+            if delta > 0:
+                key = keys[i]
+                new_value = raw[key] + delta
+                lines.append(f"- {zh_names[key]} +{delta:.3f} → {new_value:.3f}")
+        lines.append(f"✅ 達成獎勵：{reward}")
+    future_rewards = [t for t in reward_thresholds if achieved_score < t[0]]
+    if future_rewards:
+        lines.append("\n📌 下一階段獎勵預告：")
+        for i, (threshold, label) in enumerate(future_rewards[:2], 1):
+            lines.append(f"- 第 {i} 階：{label}（門檻 {threshold}）")
+    return "\n".join(lines)
 
 @bot.slash_command(name="原初", description="計算原初之星分數與獎勵")
 async def primal(ctx, input: str):
