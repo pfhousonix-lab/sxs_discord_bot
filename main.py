@@ -9,6 +9,7 @@ import json
 import random
 from datetime import datetime
 from discord import Option
+import re
 
 # Keep-alive server for Render
 app = Flask('')
@@ -46,17 +47,44 @@ reward_thresholds = [
     (1440, "加倍機率"), (1520, "經驗加成"), (1600, "最終獎勵")
 ]
 
+def is_pure_number(s):
+    return re.fullmatch(r"\d+(\.\d+)?", s) is not None
+    
 def calculate_score(parts, current_score):
     try:
         keys = ["level", "equip", "skill", "pet", "relic"]
-        raw = {k: float(parts[i]) for i, k in enumerate(keys)}
-        adjusted = {k: raw[k] * multipliers[k] for k in keys}
-        excess = {k: max(0, adjusted[k] - season_max[k]) for k in keys}
-        weighted = {k: excess[k] * weights[k] for k in keys}
+        raw = {}
+        adj = {}
+        excess = {}
+        weighted = {}
+
+        for i, key in enumerate(keys):
+            expr = parts[i]
+            value = safe_eval(expr)
+            raw[key] = value
+
+            if is_pure_number(expr):
+                adj[key] = value * multipliers[key]
+                excess[key] = max(0, adj[key] - season_max[key])
+                weighted[key] = excess[key] * weights[key]
+            else:
+                # 運算式欄位不進行加權
+                adj[key] = value
+                excess[key] = max(0, adj[key] - season_max[key] * multipliers[key])
+                weighted[key] = excess[key] * weights[key]
+
         total = sum(weighted.values())
         final_score = math.floor(total / 27 + 45)
         total_score = final_score + current_score
-        return {"raw": raw, "final_score": final_score, "total_score": total_score}, None
+
+        return {
+            "raw": raw,
+            "adj": adj,
+            "excess": excess,
+            "weighted": weighted,
+            "final_score": final_score,
+            "total_score": total_score
+        }, None
     except Exception as e:
         return None, f"⚠️ 計算錯誤：{str(e)}"
 
@@ -130,7 +158,6 @@ def recommend_upgrades(current_final_score, raw):
     return "\n".join(lines)
 
 def safe_eval(expr):
-    import re
     expr = re.sub(r'[^0-9\+\*\.\s]', '', expr)
     try:
         return eval(expr)
