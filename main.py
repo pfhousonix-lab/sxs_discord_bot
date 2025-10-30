@@ -10,6 +10,7 @@ import random
 from datetime import datetime
 from discord import Option
 import re
+from itertools import product
 
 # Keep-alive server for Render
 app = Flask('')
