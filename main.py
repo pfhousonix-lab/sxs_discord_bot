@@ -120,7 +120,7 @@ def recommend_upgrades(current_final_score, raw, current_score):
         for key in keys
     }
 
-    def find_minimal_combo(target_keys):
+    def find_combo_within_range(target_keys):
         valid_keys = [k for k in target_keys if k != "level"]
         ranges = [step_ranges[k] for k in valid_keys]
 
@@ -133,20 +133,8 @@ def recommend_upgrades(current_final_score, raw, current_score):
                 deltas[idx] = combo[i]
             test_parts = [str(test_raw[k]) for k in keys]
             result, _ = calculate_score(test_parts, current_score)
-            if result and result["final_score"] >= next_score:
-                # 測試是否任一欄位減一階就會不達標
-                is_minimal = True
-                for i, key in enumerate(valid_keys):
-                    if combo[i] > 0:
-                        test_raw[key] -= step_table[key]
-                        test_parts = [str(test_raw[k]) for k in keys]
-                        test_result, _ = calculate_score(test_parts, current_score)
-                        test_raw[key] += step_table[key]  # 還原
-                        if test_result and test_result["final_score"] >= next_score:
-                            is_minimal = False
-                            break
-                if is_minimal:
-                    return deltas, result["final_score"]
+            if result and next_score <= result["final_score"] <= next_score + 3:
+                return deltas, result["final_score"]
         return None, None
 
     strategies = {
@@ -157,7 +145,7 @@ def recommend_upgrades(current_final_score, raw, current_score):
 
     lines = [f"🔍 三種推薦策略（目標 {next_score} 分）："]
     for label, mod_keys in strategies.items():
-        deltas, achieved_score = find_minimal_combo(mod_keys)
+        deltas, achieved_score = find_combo_within_range(mod_keys)
         if not deltas:
             lines.append(f"\n❌ {label}：無法在限制內達成目標分數")
             continue
@@ -172,8 +160,7 @@ def recommend_upgrades(current_final_score, raw, current_score):
         lines.append(f"✅ 達成獎勵：{reward}")
         lines.append(f"📊 最終分數：{achieved_score} 分")
 
-    return "\n".join(lines)
-
+    return "\n"
 def safe_eval(expr):
     expr = re.sub(r'[^0-9\+\*\.\s]', '', expr)
     try:
