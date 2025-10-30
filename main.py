@@ -136,34 +136,99 @@ async def today_style(ctx):
     from datetime import datetime
 
     username = ctx.user.name
-    today = datetime.now().strftime("%Y%m%d")
-    seed = f"{username}-{today}"
+    now = datetime.now()
+    date_str = now.strftime("%Y%m%d")
+    hour = now.hour
+
+    # 時辰判定
+    def get_chinese_hour(hour):
+        table = [
+            ("子", 23, 1), ("丑", 1, 3), ("寅", 3, 5), ("卯", 5, 7),
+            ("辰", 7, 9), ("巳", 9, 11), ("午", 11, 13), ("未", 13, 15),
+            ("申", 15, 17), ("酉", 17, 19), ("戌", 19, 21), ("亥", 21, 23)
+        ]
+        for name, start, end in table:
+            if start <= hour < end or (start > end and (hour >= start or hour < end)):
+                return name
+        return "未知"
+
+    chinese_hour = get_chinese_hour(hour)
+    seed = f"{username}-{date_str}-{chinese_hour}"
     rng = random.Random(seed)
 
+    # 六爻生成
+    lines = [rng.randint(6, 9) for _ in range(6)]
+    lower = tuple(lines[:3])
+    upper = tuple(lines[3:])
+
+    # 八卦對照（簡化）
+    trigrams = {
+        (7, 7, 7): "乾", (8, 8, 8): "坤", (7, 8, 8): "震", (8, 7, 7): "巽",
+        (8, 7, 8): "坎", (7, 8, 7): "離", (8, 8, 7): "艮", (7, 7, 8): "兌"
+    }
+
+    lower_name = trigrams.get(lower, "未知")
+    upper_name = trigrams.get(upper, "未知")
+    hexagram_name = f"{lower_name}下{upper_name}上"
+
+    # 卦象加權表（範例：泰卦）
+    hexagram_weights = {
+        "乾下坤上": {
+            "蒙眼幫": {"double": +10, "red": +2.0, "ascend": +3.0},
+            "眼鏡幫": {"double": +4, "red": +2.5, "ascend": +1.0},
+            "鐮刀幫": {"double": -3, "red": -0.5, "ascend": +3.5},
+            "不入幫": {"double": -6, "red": -1.5, "ascend": -2.0}
+        }
+        # 可擴充更多卦象
+    }
+
+    # 卦象說明模板（吉凶並陳）
+    hexagram_descriptions = {
+        "乾下坤上": [
+            "天地交泰，萬物通達。蒙眼幫加倍強勢，昇華金裝也有不錯表現。但不入幫運勢低迷，建議暫避其鋒。",
+            "泰卦之日，副本氣場和諧。加倍與昇華皆有亮點，但紅金裝略顯保守，需耐心等待。",
+            "天地交泰，副本之路暢通。蒙眼幫表現亮眼，但鐮刀幫今日略顯疲弱，建議慎選。"
+        ]
+        # 可擴充更多卦象
+    }
+
+    # 幫派與 emoji
     styles = ["蒙眼幫", "眼鏡幫", "鐮刀幫", "不入幫"]
     style_emojis = {
         "蒙眼幫": "🫣", "眼鏡幫": "👓", "鐮刀幫": "🪓", "不入幫": "🙈"
     }
 
+    # 原始機率
+    base_probs = {"double": 25, "red": 2, "ascend": 5}
+
     result_lines = []
     for style in styles:
+        weights = hexagram_weights.get(hexagram_name, {}).get(style, {"double": 0, "red": 0, "ascend": 0})
+        double_p = base_probs["double"] + weights["double"]
+        red_p = base_probs["red"] + weights["red"]
+        ascend_p = base_probs["ascend"] + weights["ascend"]
+
         double_count = red_gold_count = ascend_gold_count = 0
         for _ in range(4):
-            if rng.random() < 0.25: double_count += 1
-            if rng.random() < 0.02: red_gold_count += 1
-            if rng.random() < 0.05: ascend_gold_count += 1
+            if rng.random() < double_p / 100: double_count += 1
+            if rng.random() < red_p / 100: red_gold_count += 1
+            if rng.random() < ascend_p / 100: ascend_gold_count += 1
+
         line = f"{style_emojis[style]} {style}｜加倍：{double_count}｜紅金：{red_gold_count}｜昇華：{ascend_gold_count}"
         result_lines.append(line)
+
+    # 動態卦象說明
+    hexagram_text = random.choice(hexagram_descriptions.get(hexagram_name, [f"{hexagram_name}：今日副本運勢平穩。"]))
 
     embed = discord.Embed(
         title="🎭 今日造型報告",
         description=(
-            f"👤 使用者：{username}\n📅 {today[:4]}/{today[4:6]}/{today[6:]}\n\n"
-            "📘 看看今天各幫的副本運勢：\n"
+            f"👤 使用者：{username}\n📅 {now.strftime('%Y/%m/%d')}（{chinese_hour}時）\n\n"
+            "📘 看看今天各幫的副本運勢（每幫執行 4 次判定）：\n"
             "🫣 蒙眼幫｜👓 眼鏡幫｜🪓 鐮刀幫｜🙈 不入幫\n"
-            "每個幫派各自執行 4 次副本運勢判定，包含：\n"
+            "每個幫派各自執行副本運勢判定，包含：\n"
             "✅ 加倍效果｜✨ 紅金裝｜🌟 昇華金裝\n\n"
-            "同一使用者在同一天結果固定，不同使用者或日期則重新計算。"
+            f"🔮 卦象：{hexagram_name}（{hexagram_text}）"
         ),
         color=0x8E44AD
     )
