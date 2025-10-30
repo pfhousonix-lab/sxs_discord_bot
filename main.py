@@ -140,7 +140,8 @@ def recommend_upgrades(current_final_score, raw):
         delta = deltas[i]
         if delta > 0:
             new_value = raw[key] + delta
-            lines.append(f"- {zh_names[key]}：+{delta:.3f} → {new_value:.3f}")
+            lines.append(f"- {zh_names[key]}：+ {delta * multipliers[key]:.3f} → {new_value * multipliers[key]:.3f}")
+            
     lines.append(f"✅ 達成獎勵：{reward}")
     lines.append(f"📊 最終分數：{achieved_score} 分")
 
