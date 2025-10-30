@@ -197,13 +197,12 @@ async def today_style(ctx):
     import random
     from datetime import datetime
 
-    # 使用者與時間資訊
     username = ctx.user.name
     now = datetime.now()
     date_str = now.strftime("%Y%m%d")
     hour = now.hour
 
-    # 時辰判定（依據小時轉換為地支）
+    # 時辰判定
     def get_chinese_hour(hour):
         table = [
             ("子", 23, 1), ("丑", 1, 3), ("寅", 3, 5), ("卯", 5, 7),
@@ -219,50 +218,59 @@ async def today_style(ctx):
     seed = f"{username}-{date_str}-{chinese_hour}"
     rng = random.Random(seed)
 
-    # 六爻生成 → 卦象推演
+    # 六爻 → 八卦轉換
+    def to_trigram_name(triple):
+        binary = tuple(1 if x % 2 == 1 else 0 for x in triple)
+        mapping = {
+            (1, 1, 1): "乾", (0, 0, 0): "坤", (1, 0, 0): "震", (0, 1, 1): "巽",
+            (0, 1, 0): "坎", (1, 0, 1): "離", (0, 0, 1): "艮", (1, 1, 0): "兌"
+        }
+        return mapping.get(binary, "未知")
+
     lines = [rng.randint(6, 9) for _ in range(6)]
     lower = tuple(lines[:3])
     upper = tuple(lines[3:])
-    trigrams = {
-        (7, 7, 7): "乾", (8, 8, 8): "坤", (7, 8, 8): "震", (8, 7, 7): "巽",
-        (8, 7, 8): "坎", (7, 8, 7): "離", (8, 8, 7): "艮", (7, 7, 8): "兌"
-    }
-    lower_name = trigrams.get(lower, "未知")
-    upper_name = trigrams.get(upper, "未知")
-    hexagram_name = f"{lower_name}下{upper_name}上"
+    lower_name = to_trigram_name(lower)
+    upper_name = to_trigram_name(upper)
+    hexagram_key = f"{lower_name}下{upper_name}上"
 
-    # 卦象加權表（可擴充）
+    # 卦象名稱對照（可擴充）
+    hexagram_names = {
+        "乾下乾上": "乾卦", "坤下坤上": "坤卦", "坎下震上": "屯卦", "艮下坎上": "蒙卦",
+        "坎下兌上": "需卦", "坎下乾上": "訟卦", "坤下坎上": "師卦", "坎下坤上": "比卦",
+        # ... 可補齊 64 卦
+    }
+    hexagram_title = hexagram_names.get(hexagram_key, f"{hexagram_key}（未知卦）")
+
+    # 載入卦象敘述 JSON
+    hexagrams = load_hexagram_descriptions()
+    hexagram_text = rng.choice(hexagrams.get(hexagram_key, [f"{hexagram_title}：今日副本運勢平穩。"]))
+
+    # 幫派與 emoji
+    styles = ["蒙眼幫", "眼鏡幫", "鐮刀幫", "不入幫"]
+    style_emojis = {"蒙眼幫": "🫣", "眼鏡幫": "👓", "鐮刀幫": "🪓", "不入幫": "🙈"}
+
+    # 加權表（可擴充）
     hexagram_weights = {
-        "乾下坤上": {
+        "乾下乾上": {
             "蒙眼幫": {"double": +10, "red": +2.0, "ascend": +3.0},
             "眼鏡幫": {"double": +4, "red": +2.5, "ascend": +1.0},
             "鐮刀幫": {"double": -3, "red": -0.5, "ascend": +3.5},
             "不入幫": {"double": -6, "red": -1.5, "ascend": -2.0}
+        },
+        "坤下坤上": {
+            "蒙眼幫": {"double": -5, "red": -1.0, "ascend": -1.5},
+            "眼鏡幫": {"double": +3, "red": +1.5, "ascend": +1.0},
+            "鐮刀幫": {"double": +2, "red": +0.5, "ascend": +2.0},
+            "不入幫": {"double": -2, "red": -0.5, "ascend": -1.0}
         }
     }
 
-    # 卦象敘述（可擴充）
-    hexagram_descriptions = {
-        "乾下坤上": [
-            "天地交泰，萬物通達。蒙眼幫加倍強勢，昇華金裝也有不錯表現。但不入幫運勢低迷，建議暫避其鋒。",
-            "泰卦之日，副本氣場和諧。加倍與昇華皆有亮點，但紅金裝略顯保守，需耐心等待。",
-            "天地交泰，副本之路暢通。蒙眼幫表現亮眼，但鐮刀幫今日略顯疲弱，建議慎選。"
-        ]
-    }
-
-    # 幫派與 emoji
-    styles = ["蒙眼幫", "眼鏡幫", "鐮刀幫", "不入幫"]
-    style_emojis = {
-        "蒙眼幫": "🫣", "眼鏡幫": "👓", "鐮刀幫": "🪓", "不入幫": "🙈"
-    }
-
-    # 原始機率
     base_probs = {"double": 25, "red": 2, "ascend": 5}
-
-    # 幫派副本運勢判定
     result_lines = []
+
     for style in styles:
-        weights = hexagram_weights.get(hexagram_name, {}).get(style, {"double": 0, "red": 0, "ascend": 0})
+        weights = hexagram_weights.get(hexagram_key, {}).get(style, {"double": 0, "red": 0, "ascend": 0})
         double_p = base_probs["double"] + weights["double"]
         red_p = base_probs["red"] + weights["red"]
         ascend_p = base_probs["ascend"] + weights["ascend"]
@@ -276,10 +284,6 @@ async def today_style(ctx):
         line = f"{style_emojis[style]} {style}｜加倍：{double_count}｜紅金：{red_gold_count}｜昇華：{ascend_gold_count}"
         result_lines.append(line)
 
-    # 卦象敘述抽取
-    hexagram_text = rng.choice(hexagram_descriptions.get(hexagram_name, [f"{hexagram_name}：今日副本運勢平穩。"]))
-
-    # Embed 輸出
     embed = discord.Embed(
         title="🎭 今日造型報告",
         description=(
@@ -288,7 +292,7 @@ async def today_style(ctx):
             "🫣 蒙眼幫｜👓 眼鏡幫｜🪓 鐮刀幫｜🙈 不入幫\n"
             "每個幫派各自執行副本運勢判定，包含：\n"
             "✅ 加倍效果｜✨ 紅金裝｜🌟 昇華金裝\n\n"
-            f"🔮 卦象：{hexagram_name}（{hexagram_text}）"
+            f"🔮 卦象：{hexagram_title}（{hexagram_text}）"
         ),
         color=0x8E44AD
     )
