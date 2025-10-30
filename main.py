@@ -95,57 +95,76 @@ def get_reward_status(score):
         return f"⛔ 尚未達成獎勵，距離下一階「{next_target[1]}」還差 {next_target[0] - score} 分"
     return "⛔ 尚未達成任何獎勵"
 
+def try_strategy(mod_keys):
+    test_raw = raw.copy()
+    deltas = [0.0] * len(keys)
+    for i, key in enumerate(keys):
+        if key in mod_keys:
+            for delta in step_ranges[key]:
+                test_raw[key] = raw[key] + delta
+                test_parts = [str(test_raw[k]) for k in keys]
+                result, _ = calculate_score(test_parts, 0)
+                if result and result["final_score"] >= next_score:
+                    deltas[i] = delta
+                    return deltas, result["final_score"]
+            # 若單一欄位無法達標，保留最大值
+            deltas[i] = max(step_ranges[key])
+            test_raw[key] = raw[key] + deltas[i]
+    # 第二輪嘗試其他欄位補足
+    for i, key in enumerate(keys):
+        if key not in mod_keys and key in ["equip", "relic", "skill", "pet"]:
+            for delta in step_ranges[key]:
+                test_raw[key] = raw[key] + delta
+                test_parts = [str(test_raw[k]) for k in keys]
+                result, _ = calculate_score(test_parts, 0)
+                if result and result["final_score"] >= next_score:
+                    deltas[i] = delta
+                    return deltas, result["final_score"]
+    return None, None
+
 def recommend_upgrades(current_final_score, raw):
     next_targets = [t for t in reward_thresholds if current_final_score < t[0]]
     if not next_targets:
         return "🎉 已達成所有獎勵！"
 
     next_score = next_targets[0][0]
+    max_increase = 2.0
     keys = ["level", "equip", "skill", "pet", "relic"]
     step_table = {key: 1 / multipliers[key] for key in keys}
     step_counts = 10
 
-    # 建立每欄的 step 值範圍（從 1 開始避免 0）
+    # 建立每欄的 step 值範圍（加權後不得超過 max_increase * multiplier）
     step_ranges = {
-        key: [round(i * step_table[key], 3) for i in range(1, step_counts + 1)]
+        key: [round(i * step_table[key], 3) for i in range(1, step_counts + 1)
+              if i * step_table[key] * multipliers[key] <= max_increase * multipliers[key]]
         for key in keys
     }
+    
+    strategies = {
+        "裝備優先": ["equip"],
+        "遺物優先": ["relic"],
+        "平均提升": ["equip", "relic", "skill", "pet"]
+    }
 
-    found_combos = []
-    max_attempts = 10000
-    attempts = 0
-
-    while len(found_combos) < 3 and attempts < max_attempts:
-        attempts += 1
-        deltas = [random.choice(step_ranges[key]) for key in keys]
-        test_raw = raw.copy()
-        for i, key in enumerate(keys):
-            test_raw[key] += deltas[i]
-        test_parts = [str(test_raw[k]) for k in keys]
-        result, _ = calculate_score(test_parts, 0)
-        if result and result["final_score"] >= next_score:
-            total_delta = sum(deltas)
-            found_combos.append((deltas, result["final_score"], total_delta))
-
-    if not found_combos:
-        return f"⚠️ 無法在 {max_attempts} 次嘗試中找到達成 {next_score} 分的組合"
-
-    # 挑出總提升量最小的組合
-    best_combo = min(found_combos, key=lambda x: x[2])
-    deltas, achieved_score, total_delta = best_combo
-    reward = next(t[1] for t in reward_thresholds if achieved_score >= t[0])
-
-    lines = [f"🎯 最小達標推薦（達成 {next_score} 分）："]
-    for i, key in enumerate(keys):
-        delta = deltas[i]
-        if delta > 0:
-            new_value = raw[key] + delta
-            lines.append(f"- {zh_names[key]}：+ {delta * multipliers[key]:.3f} → {new_value * multipliers[key]:.3f}")
-            
-    lines.append(f"✅ 達成獎勵：{reward}")
-    lines.append(f"📊 最終分數：{achieved_score} 分")
+    lines = [f"🔍 三種推薦策略（目標 {next_score} 分）："]
+    for label, mod_keys in strategies.items():
+        deltas, achieved_score = try_strategy(mod_keys)
+        if not deltas:
+            lines.append(f"\n❌ {label}：無法在限制內達成目標分數")
+            continue
+        reward = next(t[1] for t in reward_thresholds if achieved_score >= t[0])
+        lines.append(f"\n🎯 {label}：")
+        for i, delta in enumerate(deltas):
+            if delta > 0:
+                key = keys[i]
+                weighted_delta = delta * multipliers[key]
+                new_weighted_value = (raw[key] + delta) * multipliers[key]
+                lines.append(f"- {zh_names[key]}：+{weighted_delta:.3f} → {new_weighted_value:.3f}")
+        lines.append(f"✅ 達成獎勵：{reward}")
+        lines.append(f"📊 最終分數：{achieved_score} 分")
 
     return "\n".join(lines)
+
     
 def safe_eval(expr):
     expr = re.sub(r'[^0-9\+\*\.\s]', '', expr)
