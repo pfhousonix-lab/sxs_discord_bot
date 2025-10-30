@@ -97,6 +97,8 @@ def get_reward_status(score):
     return "⛔ 尚未達成任何獎勵"
 from itertools import product
 
+from itertools import product
+
 def recommend_upgrades(current_final_score, raw):
     next_targets = [t for t in reward_thresholds if current_final_score < t[0]]
     if not next_targets:
@@ -108,21 +110,24 @@ def recommend_upgrades(current_final_score, raw):
     step_table = {key: 1 / multipliers[key] for key in keys}
     step_counts = 10
 
-    # 建立每欄的 step 值範圍（加權後不得超過 max_increase）
+    # 建立每欄的 step 值範圍（加權後不得超過 max_increase），level 固定為 [0.0]
     step_ranges = {
-        key: [round(i * step_table[key], 3) for i in range(1, step_counts + 1)
-              if i * step_table[key] * multipliers[key] <= max_increase * multipliers[key]]
+        key: [0.0] if key == "level" else [
+            round(i * step_table[key], 3)
+            for i in range(1, step_counts + 1)
+            if i * step_table[key] * multipliers[key] <= max_increase * multipliers[key]
+        ]
         for key in keys
     }
 
     def find_minimal_combo(target_keys):
-        ranges = [step_ranges[k] for k in target_keys]
-        best_combo = None
+        valid_keys = [k for k in target_keys if k != "level"]
+        ranges = [step_ranges[k] for k in valid_keys]
 
         for combo in product(*ranges):
             test_raw = raw.copy()
             deltas = [0.0] * len(keys)
-            for i, key in enumerate(target_keys):
+            for i, key in enumerate(valid_keys):
                 idx = keys.index(key)
                 test_raw[key] += combo[i]
                 deltas[idx] = combo[i]
@@ -131,7 +136,7 @@ def recommend_upgrades(current_final_score, raw):
             if result and result["final_score"] >= next_score:
                 # 測試是否任一欄位減一階就會不達標
                 is_minimal = True
-                for i, key in enumerate(target_keys):
+                for i, key in enumerate(valid_keys):
                     if combo[i] > 0:
                         test_raw[key] -= step_table[key]
                         test_parts = [str(test_raw[k]) for k in keys]
@@ -163,13 +168,12 @@ def recommend_upgrades(current_final_score, raw):
                 key = keys[i]
                 weighted_delta = delta * multipliers[key]
                 new_weighted_value = (raw[key] + delta) * multipliers[key]
-                lines.append(f"- {zh_names[key]}：+{weighted_delta:.3f} → {new_weighted_value:.3f}")
+                lines.append(f"- 總{zh_names[key]}：+{weighted_delta:.3f} → {new_weighted_value:.3f}")
         lines.append(f"✅ 達成獎勵：{reward}")
         lines.append(f"📊 最終分數：{achieved_score} 分")
 
     return "\n".join(lines)
 
-    
 def safe_eval(expr):
     expr = re.sub(r'[^0-9\+\*\.\s]', '', expr)
     try:
