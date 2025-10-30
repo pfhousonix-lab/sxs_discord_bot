@@ -9,6 +9,7 @@ import json
 import random
 from datetime import datetime
 from discord import Option
+import textwrap
 
 # Keep-alive server for Render
 app = Flask('')
