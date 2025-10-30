@@ -65,13 +65,11 @@ def calculate_score(parts, current_score):
 
             if is_pure_number(expr):
                 adj[key] = value * multipliers[key]
-                excess[key] = max(0, adj[key] - season_max[key])
-                weighted[key] = excess[key] * weights[key]
             else:
-                # 運算式欄位不進行加權
                 adj[key] = value
-                excess[key] = max(0, adj[key] - season_max[key] * multipliers[key])
-                weighted[key] = excess[key] * weights[key]
+            
+            excess[key] = max(0, adj[key] - season_max[key])
+            weighted[key] = excess[key] * weights[key]
 
         total = sum(weighted.values())
         final_score = math.floor(total / 27 + 45)
