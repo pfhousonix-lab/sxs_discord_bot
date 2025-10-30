@@ -10,7 +10,6 @@ import random
 from datetime import datetime
 from discord import Option
 import re
-from itertools import product
 
 # Keep-alive server for Render
 app = Flask('')
@@ -100,68 +99,51 @@ def recommend_upgrades(current_final_score, raw):
     next_targets = [t for t in reward_thresholds if current_final_score < t[0]]
     if not next_targets:
         return "🎉 已達成所有獎勵！"
-    
+
     next_score = next_targets[0][0]
     keys = ["level", "equip", "skill", "pet", "relic"]
-    value_table = {key: weights[key] * multipliers[key] for key in keys}
     step_table = {key: 1 / multipliers[key] for key in keys}
-    step_counts = 10  # 每欄 11 個值
-    sample_size = 100  # 抽樣組合數
+    step_counts = 10
 
-    # 建立每欄的 step 值範圍
+    # 建立每欄的 step 值範圍（從 1 開始避免 0）
     step_ranges = {
-        key: [round(i * step_table[key], 3) for i in range(step_counts + 1)]
+        key: [round(i * step_table[key], 3) for i in range(1, step_counts + 1)]
         for key in keys
     }
 
-    # 所有可能組合（仍會很多）
-    all_combos = list(product(*[step_ranges[k] for k in keys]))
-    sampled_combos = random.sample(all_combos, min(sample_size, len(all_combos)))
+    found_combos = []
+    max_attempts = 10000
+    attempts = 0
 
-    strategy_weights = {
-        "裝備主導": {"equip": 3},
-        "遺物主導": {"relic": 3},
-        "綜合提升": {}
-    }
+    while len(found_combos) < 3 and attempts < max_attempts:
+        attempts += 1
+        deltas = [random.choice(step_ranges[key]) for key in keys]
+        test_raw = raw.copy()
+        for i, key in enumerate(keys):
+            test_raw[key] += deltas[i]
+        test_parts = [str(test_raw[k]) for k in keys]
+        result, _ = calculate_score(test_parts, 0)
+        if result and result["final_score"] >= next_score:
+            total_delta = sum(deltas)
+            found_combos.append((deltas, result["final_score"], total_delta))
 
-    combos_by_strategy = {}
+    if not found_combos:
+        return f"⚠️ 無法在 {max_attempts} 次嘗試中找到達成 {next_score} 分的組合"
 
-    for strategy, bias in strategy_weights.items():
-        combos = []
-        for deltas in sampled_combos:
-            test_raw = raw.copy()
-            for i, key in enumerate(keys):
-                test_raw[key] += deltas[i]
-            test_parts = [str(test_raw[k]) for k in keys]
-            result, _ = calculate_score(test_parts, 0)
-            if result and result["final_score"] >= next_score:
-                if strategy == "綜合提升":
-                    stddev = statistics.stdev(deltas)
-                    combos.append((deltas, result["final_score"], stddev))
-                else:
-                    total_value = sum(
-                        deltas[i] * value_table[keys[i]] * bias.get(keys[i], 1)
-                        for i in range(5)
-                    )
-                    combos.append((deltas, result["final_score"], -total_value))
-        if combos:
-            combos.sort(key=lambda x: x[2])
-            combos_by_strategy[strategy] = combos[0]
+    # 挑出總提升量最小的組合
+    best_combo = min(found_combos, key=lambda x: x[2])
+    deltas, achieved_score, total_delta = best_combo
+    reward = next(t[1] for t in reward_thresholds if achieved_score >= t[0])
 
-    if not combos_by_strategy:
-        return f"⚠️ 無法在隨機抽樣中找到達成 {next_score} 分的組合"
+    lines = [f"🎯 最小達標推薦（達成 {next_score} 分）："]
+    for i, key in enumerate(keys):
+        delta = deltas[i]
+        if delta > 0:
+            new_value = raw[key] + delta
+            lines.append(f"- {zh_names[key]}：+{delta:.3f} → {new_value:.3f}")
+    lines.append(f"✅ 達成獎勵：{reward}")
+    lines.append(f"📊 最終分數：{achieved_score} 分")
 
-    lines = [f"🔍 三種推薦策略（達成 {next_score} 分）："]
-    for label, (deltas, achieved_score, _) in combos_by_strategy.items():
-        reward = next(t[1] for t in reward_thresholds if achieved_score >= t[0])
-        lines.append(f"\n🎯 {label}：")
-        for i, delta in enumerate(deltas):
-            if delta > 0:
-                key = keys[i]
-                new_value = raw[key] + delta
-                lines.append(f"- {zh_names[key]} +{delta:.3f} → {new_value:.3f}")
-        lines.append(f"✅ 達成獎勵：{reward}")
-        
     return "\n".join(lines)
     
 def safe_eval(expr):
@@ -203,7 +185,7 @@ async def process_input(ctx, input: str, recommend: bool):
         ]
 
         if recommend:
-            lines.append("\n" + recommend_upgrades(result['final_score'], result['raw']))
+            lines.append("\n" + recommend_upgrades(result['total_score'], result['raw']))
         else:
             future_rewards = [t for t in reward_thresholds if result['total_score'] < t[0]]
             if future_rewards:
