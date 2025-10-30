@@ -95,73 +95,7 @@ def get_reward_status(score):
     if next_target:
         return f"⛔ 尚未達成獎勵，距離下一階「{next_target[1]}」還差 {next_target[0] - score} 分"
     return "⛔ 尚未達成任何獎勵"
-from itertools import product
 
-from itertools import product
-
-def recommend_upgrades(current_final_score, raw, current_score):
-    next_targets = [t for t in reward_thresholds if current_final_score < t[0]]
-    if not next_targets:
-        return "🎉 已達成所有獎勵！"
-
-    next_score = next_targets[0][0]
-    max_increase = 2.0
-    keys = ["level", "equip", "skill", "pet", "relic"]
-    step_table = {key: 1 / multipliers[key] for key in keys}
-    step_counts = 10
-
-    # 建立每欄的 step 值範圍（加權後不得超過 max_increase），level 固定為 [0.0]
-    step_ranges = {
-        key: [0.0] if key == "level" else [
-            round(i * step_table[key], 3)
-            for i in range(1, step_counts + 1)
-            if i * step_table[key] * multipliers[key] <= max_increase * multipliers[key]
-        ]
-        for key in keys
-    }
-
-    def find_combo_within_range(target_keys):
-        valid_keys = [k for k in target_keys if k != "level"]
-        ranges = [step_ranges[k] for k in valid_keys]
-
-        for combo in product(*ranges):
-            test_raw = raw.copy()
-            deltas = [0.0] * len(keys)
-            for i, key in enumerate(valid_keys):
-                idx = keys.index(key)
-                test_raw[key] += combo[i]
-                deltas[idx] = combo[i]
-            test_parts = [str(test_raw[k]) for k in keys]
-            result, _ = calculate_score(test_parts, current_score)
-            if result and next_score <= result["final_score"] <= next_score + 3:
-                return deltas, result["final_score"]
-        return None, None
-
-    strategies = {
-        "裝備優先": ["equip", "relic"],
-        "遺物優先": ["relic", "equip"],
-        "平均提升": ["equip", "relic", "skill", "pet"]
-    }
-
-    lines = [f"🔍 三種推薦策略（目標 {next_score} 分）："]
-    for label, mod_keys in strategies.items():
-        deltas, achieved_score = find_combo_within_range(mod_keys)
-        if not deltas:
-            lines.append(f"\n❌ {label}：無法在限制內達成目標分數")
-            continue
-        reward = next(t[1] for t in reward_thresholds if achieved_score >= t[0])
-        lines.append(f"\n🎯 {label}：")
-        for i, delta in enumerate(deltas):
-            if delta > 0:
-                key = keys[i]
-                weighted_delta = delta * multipliers[key]
-                new_weighted_value = (raw[key] + delta) * multipliers[key]
-                lines.append(f"- 總{zh_names[key]}：+{weighted_delta:.3f} → {new_weighted_value:.3f}")
-        lines.append(f"✅ 達成獎勵：{reward}")
-        lines.append(f"📊 最終分數：{achieved_score} 分")
-
-    return "\n"
-    
 def safe_eval(expr):
     expr = re.sub(r'[^0-9\+\*\.\s]', '', expr)
     try:
@@ -207,7 +141,7 @@ async def process_input(ctx, input: str, recommend: bool):
                 lines.append(f"- 第 {i} 階：{label}（門檻 {threshold}）")
                 
         if recommend:
-            lines.append("\n" + recommend_upgrades(result['total_score'], result['raw'], current_score))
+            pass
 
         await ctx.respond("\n".join(lines))
     except Exception as e:
@@ -216,10 +150,6 @@ async def process_input(ctx, input: str, recommend: bool):
 @bot.slash_command(name="原初", description="計算原初之星分數")
 async def calc(ctx, input: Option(str, "格式：等級/裝備/技能/寵物/遺物 或 +上季末分數/等級/裝備/技能/寵物/遺物")):
     await process_input(ctx, input, recommend=False)
-
-@bot.slash_command(name="原初推薦", description="推薦如何提升原初之星")
-async def recommend(ctx, input: Option(str, "格式同 /原初")):
-    await process_input(ctx, input, recommend=True)
 
 @bot.slash_command(name="原初獎勵", description="查詢原初之星獎勵階段")
 async def rewards(ctx):
@@ -375,7 +305,6 @@ async def help(ctx):
     lines = [
         "📘 指令說明：",
         "/原初：計算原初之星分數",
-        "/原初推薦：推薦如何提升原初之星",
         "/原初獎勵：查看原初獎勵階段",
         "/今日造型：根據卦象推薦副本造型",
         "/隨機：從選項中隨機選一個",
