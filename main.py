@@ -213,7 +213,7 @@ async def process_input(ctx, input: str, recommend: bool):
         ]
 
         if recommend:
-            lines.append("\n" + recommend_upgrades(result['total_score'], result['raw']), current_score)
+            lines.append("\n" + recommend_upgrades(result['total_score'], result['raw'], current_score)
         else:
             future_rewards = [t for t in reward_thresholds if result['total_score'] < t[0]]
             if future_rewards:
