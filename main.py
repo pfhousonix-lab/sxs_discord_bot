@@ -99,7 +99,7 @@ from itertools import product
 
 from itertools import product
 
-def recommend_upgrades(current_final_score, raw):
+def recommend_upgrades(current_final_score, raw, current_score):
     next_targets = [t for t in reward_thresholds if current_final_score < t[0]]
     if not next_targets:
         return "🎉 已達成所有獎勵！"
@@ -132,7 +132,7 @@ def recommend_upgrades(current_final_score, raw):
                 test_raw[key] += combo[i]
                 deltas[idx] = combo[i]
             test_parts = [str(test_raw[k]) for k in keys]
-            result, _ = calculate_score(test_parts, 0)
+            result, _ = calculate_score(test_parts, current_score)
             if result and result["final_score"] >= next_score:
                 # 測試是否任一欄位減一階就會不達標
                 is_minimal = True
@@ -140,7 +140,7 @@ def recommend_upgrades(current_final_score, raw):
                     if combo[i] > 0:
                         test_raw[key] -= step_table[key]
                         test_parts = [str(test_raw[k]) for k in keys]
-                        test_result, _ = calculate_score(test_parts, 0)
+                        test_result, _ = calculate_score(test_parts, current_score)
                         test_raw[key] += step_table[key]  # 還原
                         if test_result and test_result["final_score"] >= next_score:
                             is_minimal = False
@@ -201,7 +201,7 @@ async def process_input(ctx, input: str, recommend: bool):
                 await ctx.respond(f"⚠️ 無法解析欄位：`{val}`，請確認格式正確（可使用加法與乘法）")
                 return
 
-        result, error = calculate_score([str(v) for v in values], current_score)
+        result, error = ([str(v) for v in values], current_score)
         if error:
             await ctx.respond(error)
             return
@@ -213,7 +213,7 @@ async def process_input(ctx, input: str, recommend: bool):
         ]
 
         if recommend:
-            lines.append("\n" + recommend_upgrades(result['total_score'], result['raw']))
+            lines.append("\n" + recommend_upgrades(result['total_score'], result['raw']), current_score)
         else:
             future_rewards = [t for t in reward_thresholds if result['total_score'] < t[0]]
             if future_rewards:
