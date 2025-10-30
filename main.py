@@ -176,15 +176,13 @@ async def process_input(ctx, input: str, recommend: bool):
             await ctx.respond("⚠️ 輸入格式錯誤，請使用 `目前分數+/等級/裝備/技能/寵物/遺物` 或 `等級/裝備/技能/寵物/遺物`")
             return
 
-        parsed_values = []
         for val in values:
             v = safe_eval(val)
             if v is None:
                 await ctx.respond(f"⚠️ 無法解析欄位：`{val}`，請確認格式正確（可使用加法與乘法）")
                 return
-            parsed_values.append(v)
 
-        result, error = calculate_score([str(v) for v in parsed_values], current_score)
+        result, error = calculate_score([str(v) for v in values], current_score)
         if error:
             await ctx.respond(error)
             return
